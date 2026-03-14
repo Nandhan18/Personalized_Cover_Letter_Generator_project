@@ -1,16 +1,12 @@
 import os
-
-# 🔥 Fix Paddle 3.x issues
-os.environ["FLAGS_use_mkldnn"] = "0"
-os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
-
 import streamlit as st
 from datetime import datetime
 import PyPDF2
 import docx
-from paddleocr import PaddleOCR
 import tempfile
-from groq import Groq   # NEW
+from groq import Groq
+import pytesseract
+from PIL import Image
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -63,58 +59,43 @@ if "history" not in st.session_state:
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = None
 
-# ---------------- INIT OCR ----------------
-@st.cache_resource
-def load_ocr():
-    return PaddleOCR(lang="en", use_textline_orientation=True)
-
-ocr = load_ocr()
-
 # ---------------- INIT GROQ CLIENT ----------------
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # ---------------- FILE TEXT EXTRACTION ----------------
 def extract_text_from_file(uploaded_file):
+
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     try:
         uploaded_file.seek(0)
 
+        # TXT
         if file_type == "txt":
             return uploaded_file.read().decode("utf-8", errors="ignore")
 
+        # PDF
         elif file_type == "pdf":
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             text = ""
+
             for page in pdf_reader.pages:
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text + "\n"
+
             return text
 
+        # DOCX
         elif file_type == "docx":
             doc = docx.Document(uploaded_file)
-            return "\n".join([para.text for para in doc.paragraphs])
+            return "\n".join([p.text for p in doc.paragraphs])
 
+        # IMAGE → OCR
         elif file_type in ["jpg", "jpeg", "png"]:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_type}") as tmp:
-                tmp.write(uploaded_file.read())
-                tmp_path = tmp.name
 
-            result = ocr.ocr(tmp_path)
-
-            text = ""
-            if result:
-                for page in result:
-                    if page:
-                        for line in page:
-                            if isinstance(line, list) and len(line) > 1:
-                                text += line[1][0] + "\n"
-
-            try:
-                os.remove(tmp_path)
-            except:
-                pass
+            image = Image.open(uploaded_file)
+            text = pytesseract.image_to_string(image)
 
             return text
 
@@ -126,6 +107,7 @@ def extract_text_from_file(uploaded_file):
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
+
     st.title("💬 Chat History")
 
     if st.button("➕ New Chat", use_container_width=True):
@@ -136,8 +118,10 @@ with st.sidebar:
 
     if len(st.session_state.history) == 0:
         st.info("No chats yet")
+
     else:
         for idx, chat in enumerate(st.session_state.history):
+
             if st.button(chat["title"], key=idx, use_container_width=True):
                 st.session_state.current_chat = idx
 
@@ -149,7 +133,7 @@ st.divider()
 
 uploaded_files = st.file_uploader(
     "📂 Upload Resume & Job Description Files",
-    type=["pdf", "txt", "docx", "jpg", "jpeg", "png"],
+    type=["pdf","txt","docx","jpg","jpeg","png"],
     accept_multiple_files=True
 )
 
@@ -165,7 +149,9 @@ if generate_btn:
             combined_text = ""
 
             for file in uploaded_files:
+
                 extracted_text = extract_text_from_file(file)
+
                 combined_text += f"\n\n--- File: {file.name} ---\n"
                 combined_text += extracted_text
 
@@ -180,6 +166,7 @@ Make it personalized, concise, and impactful.
 """
 
             try:
+
                 completion = client.chat.completions.create(
                     model="llama3-8b-8192",
                     messages=[{"role": "user", "content": prompt}]
@@ -188,6 +175,7 @@ Make it personalized, concise, and impactful.
                 cover_letter = completion.choices[0].message.content
 
             except Exception as e:
+
                 cover_letter = f"⚠️ AI generation error: {str(e)}"
 
         title = f"Generated - {datetime.now().strftime('%H:%M')}"
@@ -200,6 +188,7 @@ Make it personalized, concise, and impactful.
         st.session_state.current_chat = len(st.session_state.history) - 1
 
     else:
+
         st.error("❌ Please upload at least TWO files (Resume + Job Description).")
 
 # ---------------- DISPLAY RESULT ----------------
