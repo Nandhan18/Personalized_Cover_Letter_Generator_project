@@ -1,0 +1,6 @@
+streamlit>=1.35.0
+requests
+PyPDF2
+python-docx
+paddleocr==2.7.3
+paddlepaddle==2.6.1
