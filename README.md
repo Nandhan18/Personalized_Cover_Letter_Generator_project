@@ -6,7 +6,7 @@ An **AI-powered assistant** that transforms the job application process. By anal
 
 ## 🚀 Live Demo
 
-Check out the live application here: **[Your Streamlit Link](https://personalizedcoverlettergeneratorproject.streamlit.app/)**
+Check out the live application here: **[project Link](https://personalizedcoverlettergeneratorproject.streamlit.app/)**
 
 ---
 
