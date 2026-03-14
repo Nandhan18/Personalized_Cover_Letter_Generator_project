@@ -1,151 +1,122 @@
 # 📄 AI Cover Letter Generator
 
-An **AI-powered Cover Letter Generator** built using **Streamlit, PaddleOCR, and Ollama (Phi Model)**.
-This application allows users to upload a **Resume and Job Description** in multiple formats and automatically generate a **personalized, ATS-optimized cover letter**.
+An **AI-powered assistant** that transforms the job application process. By analyzing your **Resume** against a **Job Description**, this tool generates a personalized, ATS-optimized cover letter in seconds using the lightning-fast **Groq inference engine**.
 
 ---
 
-# 🚀 Features
+## 🚀 Live Demo
 
-* 📂 Upload **Resume and Job Description**
-* 🧾 Supports multiple file formats:
-
-  * PDF
-  * DOCX
-  * TXT
-  * Images (JPG, JPEG, PNG)
-* 🔍 Extracts text from images using **PaddleOCR**
-* 🤖 Generates personalized cover letters using **Ollama AI (Phi Model)**
-* 🎨 Modern **dark-themed Streamlit interface**
-* 💬 Chat history support
-* ⬇️ Download generated cover letter
+Check out the live application here: **[Your Streamlit Link](https://personalizedcoverlettergeneratorproject.streamlit.app/)**
 
 ---
 
-# 🧠 Technologies Used
+## ✨ Features
 
-* Python
-* Streamlit
-* PaddleOCR
-* Ollama (Phi Model)
-* PyPDF2
-* python-docx
-* Requests
+* **Smart Ingestion:** Upload Resumes and JDs in **PDF, DOCX, TXT**, or **Image** formats.
+* **OCR Powered:** Integrated **Tesseract OCR** to extract text from scanned documents and images (`JPG`, `PNG`).
+* **Llama 3.3 70B Intelligence:** Leverages the **Groq API** for high-speed, high-quality professional writing.
+* **ATS Optimization:** Specifically engineered prompts to highlight keyword alignment and skills.
+* **Modern UI:** A sleek, dark-themed interface built with **Streamlit**.
+* **Secure:** Built-in support for Streamlit Secrets to keep your API keys safe.
 
 ---
 
-# 📂 Project Structure
+## 🧠 Technologies Used
 
+| Technology | Purpose |
+| --- | --- |
+| **Streamlit** | Web interface and UI components |
+| **Groq API** | Ultra-fast AI inference engine |
+| **Llama 3.3 70B** | Advanced LLM for professional content generation |
+| **Tesseract OCR** | Optical Character Recognition for image-based files |
+| **PyPDF2 / Docx** | Document parsing and text extraction |
+| **Python** | Core application logic |
+
+---
+
+## 📂 Project Structure
+
+```text
 AI-Cover-Letter-Generator
 │
-├── new.py
-├── requirements.txt
-├── .gitignore
-├── README.md
+├── .streamlit/
+│   ├── config.toml         # UI Configuration
+│   └── secrets.toml        # API Keys (Local only)
+├── new.py                  # Main Application logic
+├── requirements.txt        # Python dependencies
+├── README.md               # Documentation
+├── .gitignore              # Files to exclude from Git
+└── LICENSE                 # MIT License
+
+```
 
 ---
 
-# ⚙️ Installation
+## ⚙️ Installation & Setup
 
-## 1️⃣ Clone the Repository
+### 1. Clone the Repository
 
+```bash
 git clone https://github.com/yourusername/ai-cover-letter-generator.git
-
 cd ai-cover-letter-generator
 
----
+```
 
-## 2️⃣ Install Python Dependencies
+### 2. Install Dependencies
 
+```bash
 pip install -r requirements.txt
 
----
+```
 
-## 3️⃣ Install Ollama
+*Note: Ensure [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) is installed on your system.*
 
-Download Ollama from:
+### 3. Configure API Keys
 
-https://ollama.com
+Create a `.streamlit/secrets.toml` file in the root directory:
 
-After installing Ollama, pull the **Phi model**:
+```toml
+GROQ_API_KEY = "your_groq_api_key_here"
 
-ollama pull phi
+```
 
-Start the Ollama server:
+### 4. Run the Application
 
-ollama serve
-
----
-
-## 4️⃣ Run the Application
-
+```bash
 streamlit run new.py
 
-Then open your browser:
 
-http://localhost:8501
+## 🖥️ How It Works
 
----
-
-# 🖥️ How the Application Works
-
-1️⃣ Upload **Resume and Job Description files**
-
-2️⃣ The system extracts text using:
-
-* PyPDF2 → for PDF files
-* python-docx → for DOCX files
-* PaddleOCR → for images
-
-3️⃣ Extracted content is combined and sent to the **Ollama AI model**
-
-4️⃣ The AI model generates a **professional cover letter**
-
-5️⃣ The user can **view and download the generated letter**
+1. **Upload:** Provide your Resume and the Job Description.
+2. **Extract:** The app parses text using `PyPDF2`, `python-docx`, or `pytesseract` based on file type.
+3. **Analyze:** The extracted text is sent to **Llama 3.3 70B** via Groq.
+4. **Generate:** A professional cover letter is synthesized, focusing on matching your experience to the job requirements.
+5. **Export:** Review the result on-screen and download it for your application.
 
 ---
 
-# 📌 Requirements
 
-Your `requirements.txt` file should contain:
 
-streamlit
-requests
-PyPDF2
-python-docx
-paddleocr
-paddlepaddle
+## 💡 Future Improvements
 
-Install using:
-
-pip install -r requirements.txt
+* [ ] **Match Scoring:** Visual compatibility percentage between Resume and JD.
+* [ ] **Multi-Language:** Support for generating letters in different languages.
+* [ ] **Feedback Loop:** AI-driven suggestions to improve your resume.
 
 ---
 
-# ⚠️ Important Notes
+## 👨‍💻 Author
 
-* **Ollama must be running locally** for AI generation.
-* Large image files may take longer because of OCR processing.
-* This project runs **locally using Streamlit**.
-
----
-
-# 💡 Future Improvements
-
-* Export cover letter as **PDF**
-* Add **multiple AI model support**
-* Resume keyword analysis
-* Job compatibility scoring
-* Deploy to **Streamlit Cloud or Docker**
+**Velugu Athrinandhan**
+*B.Tech CSIT Student | Python  Developer | AI Enthusiast*
 
 ---
 
-# 👨‍💻 Author
+## 📜 License
 
-Developed as part of an **AI-powered automation project using Python and modern AI tools**.
+This project is licensed under the **MIT License**.
 
----
+⭐ Support
 
-# 📜 License
-
-This project is open-source and available under the **MIT License**.
+If you like this project, please star the repository on GitHub ⭐
