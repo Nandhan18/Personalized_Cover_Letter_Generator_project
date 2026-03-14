@@ -4,3 +4,4 @@ PyPDF2
 python-docx
 paddleocr==2.7.3
 paddlepaddle==2.6.1
+groq
