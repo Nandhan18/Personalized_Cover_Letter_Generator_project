@@ -6,11 +6,11 @@ os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
 import streamlit as st
 from datetime import datetime
-import requests
 import PyPDF2
 import docx
 from paddleocr import PaddleOCR
 import tempfile
+from groq import Groq   # NEW
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ---------------- DARK UI CSS (UNCHANGED FROM YOUR DESIGN) ----------------
+# ---------------- DARK UI CSS ----------------
 st.markdown("""
 <style>
 .block-container {
@@ -63,29 +63,26 @@ if "history" not in st.session_state:
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = None
 
-# ---------------- INIT PADDLE OCR (3.x SAFE) ----------------
+# ---------------- INIT OCR ----------------
 @st.cache_resource
 def load_ocr():
-    return PaddleOCR(
-        lang="en",
-        use_textline_orientation=True
-    )
+    return PaddleOCR(lang="en", use_textline_orientation=True)
 
 ocr = load_ocr()
+
+# ---------------- INIT GROQ CLIENT ----------------
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # ---------------- FILE TEXT EXTRACTION ----------------
 def extract_text_from_file(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     try:
-        # Reset pointer (important for Streamlit)
         uploaded_file.seek(0)
 
-        # TXT
         if file_type == "txt":
             return uploaded_file.read().decode("utf-8", errors="ignore")
 
-        # PDF
         elif file_type == "pdf":
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             text = ""
@@ -95,14 +92,11 @@ def extract_text_from_file(uploaded_file):
                     text += page_text + "\n"
             return text
 
-        # DOCX
         elif file_type == "docx":
             doc = docx.Document(uploaded_file)
             return "\n".join([para.text for para in doc.paragraphs])
 
-        # IMAGE → OCR
         elif file_type in ["jpg", "jpeg", "png"]:
-
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_type}") as tmp:
                 tmp.write(uploaded_file.read())
                 tmp_path = tmp.name
@@ -186,23 +180,15 @@ Make it personalized, concise, and impactful.
 """
 
             try:
-                response = requests.post(
-                    "http://localhost:11434/api/generate",
-                    json={
-                        "model": "phi",
-                        "prompt": prompt,
-                        "stream": False
-                    },
-                    timeout=120
+                completion = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[{"role": "user", "content": prompt}]
                 )
 
-                if response.status_code == 200:
-                    cover_letter = response.json().get("response", "")
-                else:
-                    cover_letter = "⚠️ Ollama Error: " + response.text
+                cover_letter = completion.choices[0].message.content
 
             except Exception as e:
-                cover_letter = f"⚠️ Ollama server not running.\n{str(e)}"
+                cover_letter = f"⚠️ AI generation error: {str(e)}"
 
         title = f"Generated - {datetime.now().strftime('%H:%M')}"
 
