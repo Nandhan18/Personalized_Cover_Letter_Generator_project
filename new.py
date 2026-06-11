@@ -1,16 +1,20 @@
 import os
+
+# 🔥 Fix Paddle 3.x issues
+os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+
 import streamlit as st
 from datetime import datetime
+import requests
 import PyPDF2
 import docx
+from paddleocr import PaddleOCR
 import tempfile
-from groq import Groq
-import pytesseract
-from PIL import Image
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="AI Cover Letter Generator",
+    page_title="AI Career Assistant",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -59,56 +63,69 @@ if "history" not in st.session_state:
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = None
 
-# ---------------- INIT GROQ CLIENT ----------------
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+if "mode" not in st.session_state:
+    st.session_state.mode = "Cover Letter"
+
+# ---------------- INIT OCR ----------------
+@st.cache_resource
+def load_ocr():
+    return PaddleOCR(lang="en", use_textline_orientation=True)
+
+ocr = load_ocr()
 
 # ---------------- FILE TEXT EXTRACTION ----------------
 def extract_text_from_file(uploaded_file):
-
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     try:
         uploaded_file.seek(0)
 
-        # TXT
         if file_type == "txt":
             return uploaded_file.read().decode("utf-8", errors="ignore")
 
-        # PDF
         elif file_type == "pdf":
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             text = ""
-
             for page in pdf_reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-
+                if page.extract_text():
+                    text += page.extract_text() + "\n"
             return text
 
-        # DOCX
         elif file_type == "docx":
             doc = docx.Document(uploaded_file)
-            return "\n".join([p.text for p in doc.paragraphs])
+            return "\n".join([para.text for para in doc.paragraphs])
 
-        # IMAGE → OCR
         elif file_type in ["jpg", "jpeg", "png"]:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_type}") as tmp:
+                tmp.write(uploaded_file.read())
+                tmp_path = tmp.name
 
-            image = Image.open(uploaded_file)
-            text = pytesseract.image_to_string(image)
+            result = ocr.ocr(tmp_path)
 
+            text = ""
+            if result:
+                for page in result:
+                    for line in page:
+                        if isinstance(line, list) and len(line) > 1:
+                            text += line[1][0] + "\n"
+
+            os.remove(tmp_path)
             return text
 
-        else:
-            return ""
+        return ""
 
     except Exception as e:
-        return f"\n[Error reading {uploaded_file.name}: {str(e)}]\n"
+        return f"[Error reading {uploaded_file.name}: {str(e)}]"
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
-
     st.title("💬 Chat History")
+
+    # 🎯 Mode Selector
+    st.session_state.mode = st.selectbox(
+        "🎯 Select Mode",
+        ["Cover Letter", "Interview Preparation"]
+    )
 
     if st.button("➕ New Chat", use_container_width=True):
         st.session_state.current_chat = None
@@ -118,80 +135,148 @@ with st.sidebar:
 
     if len(st.session_state.history) == 0:
         st.info("No chats yet")
-
     else:
         for idx, chat in enumerate(st.session_state.history):
-
             if st.button(chat["title"], key=idx, use_container_width=True):
                 st.session_state.current_chat = idx
 
 # ---------------- MAIN ----------------
-st.title("📄 Personalized Cover Letter Generator")
-st.caption("Upload Resume + Job Description (Any Format)")
+st.title("🚀 AI Career Assistant")
 
-st.divider()
+# ================= COVER LETTER MODE =================
+if st.session_state.mode == "Cover Letter":
 
-uploaded_files = st.file_uploader(
-    "📂 Upload Resume & Job Description Files",
-    type=["pdf","txt","docx","jpg","jpeg","png"],
-    accept_multiple_files=True
-)
+    st.header("📄 Cover Letter Generator")
 
-generate_btn = st.button("🚀 Generate Cover Letter", use_container_width=True)
+    col1, col2 = st.columns(2)
 
-# ---------------- GENERATE COVER LETTER ----------------
-if generate_btn:
+    with col1:
+        resume_file = st.file_uploader(
+            "📘 Upload Resume",
+            type=["pdf", "txt", "docx", "jpg", "jpeg", "png"]
+        )
 
-    if uploaded_files and len(uploaded_files) >= 2:
+    with col2:
+        job_file = st.file_uploader(
+            "📑 Upload Job Description",
+            type=["pdf", "txt", "docx", "jpg", "jpeg", "png"]
+        )
 
-        with st.spinner("Reading documents and generating cover letter..."):
+    generate_btn = st.button("🚀 Generate Cover Letter", use_container_width=True)
 
-            combined_text = ""
+    if generate_btn:
 
-            for file in uploaded_files:
+        if resume_file and job_file:
 
-                extracted_text = extract_text_from_file(file)
+            with st.spinner("Generating cover letter..."):
 
-                combined_text += f"\n\n--- File: {file.name} ---\n"
-                combined_text += extracted_text
+                resume_text = extract_text_from_file(resume_file)
+                job_text = extract_text_from_file(job_file)
 
-            prompt = f"""
-Write a professional, formal, ATS-optimized cover letter.
+                prompt = f"""
+Write a professional, ATS-optimized cover letter.
 
-Use the information extracted from the following documents:
+Resume:
+{resume_text}
 
-{combined_text}
-
-Make it personalized, concise, and impactful.
+Job Description:
+{job_text}
 """
 
-            try:
+                try:
+                    response = requests.post(
+                        "http://localhost:11434/api/generate",
+                        json={
+                            "model": "phi",
+                            "prompt": prompt,
+                            "stream": False
+                        },
+                        timeout=120
+                    )
 
-                completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}]
-                )
+                    output = response.json().get("response", "")
 
-                cover_letter = completion.choices[0].message.content
+                except Exception as e:
+                    output = f"⚠️ Error: {str(e)}"
 
-            except Exception as e:
+            title = f"Cover Letter - {datetime.now().strftime('%H:%M')}"
 
-                cover_letter = f"⚠️ AI generation error: {str(e)}"
+            st.session_state.history.append({
+                "title": title,
+                "content": output
+            })
 
-        title = f"Generated - {datetime.now().strftime('%H:%M')}"
+            st.session_state.current_chat = len(st.session_state.history) - 1
 
-        st.session_state.history.append({
-            "title": title,
-            "cover_letter": cover_letter
-        })
+        else:
+            st.error("Upload both files")
 
-        st.session_state.current_chat = len(st.session_state.history) - 1
+# ================= INTERVIEW MODE =================
+elif st.session_state.mode == "Interview Preparation":
 
-    else:
+    st.header("🎯 Interview Preparation Assistant")
 
-        st.error("❌ Please upload at least TWO files (Resume + Job Description).")
+    study_files = st.file_uploader(
+        "📚 Upload Study Materials",
+        type=["pdf", "txt", "docx", "jpg", "jpeg", "png"],
+        accept_multiple_files=True
+    )
 
-# ---------------- DISPLAY RESULT ----------------
+    analyze_btn = st.button("🧠 Generate Interview Prep", use_container_width=True)
+
+    if analyze_btn:
+
+        if study_files:
+
+            with st.spinner("Processing study materials..."):
+
+                combined_text = ""
+
+                for file in study_files:
+                    combined_text += extract_text_from_file(file) + "\n"
+
+                prompt = f"""
+You are an expert interview coach.
+
+Material:
+{combined_text}
+
+Generate:
+1. Summary
+2. Important Questions
+3. Answers
+4. Key Concepts
+"""
+
+                try:
+                    response = requests.post(
+                        "http://host.docker.internal:11434/api/generate",
+                        json={
+                            "model": "phi",
+                            "prompt": prompt,
+                            "stream": False
+                        },
+                        timeout=180
+                    )
+
+                    output = response.json().get("response", "")
+
+                except Exception as e:
+                    output = f"⚠️ Error: {str(e)}"
+
+            title = f"Interview Prep - {datetime.now().strftime('%H:%M')}"
+
+            st.session_state.history.append({
+                "title": title,
+                "content": output
+            })
+
+            st.session_state.current_chat = len(st.session_state.history) - 1
+
+        else:
+            st.error("Upload at least one file")
+
+# ---------------- DISPLAY ----------------
 if st.session_state.current_chat is not None:
 
     st.divider()
@@ -203,16 +288,16 @@ if st.session_state.current_chat is not None:
     st.markdown(
         f"""
         <div class="assistant-box">
-        {chat['cover_letter'].replace(chr(10), '<br>')}
+        {chat['content'].replace(chr(10), '<br>')}
         </div>
         """,
         unsafe_allow_html=True
     )
 
     st.download_button(
-        "⬇️ Download Cover Letter",
-        data=chat["cover_letter"],
-        file_name="cover_letter.txt",
+        "⬇️ Download",
+        data=chat["content"],
+        file_name="output.txt",
         mime="text/plain",
         use_container_width=True
     )
