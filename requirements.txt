@@ -1,3 +1,4 @@
+paddleocr
 streamlit
 requests
 PyPDF2
